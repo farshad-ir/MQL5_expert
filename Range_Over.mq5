@@ -30,6 +30,15 @@ double LotSize            = 0.01;
 double lord_coef;
 
 bool ShockActive = false;
+bool wait_a_minute = false;
+
+
+bool NOT_BUY_UNTIL = false;
+double NotBuyUntilPrice = 0.0;
+
+bool NOT_SELL_UNTIL = false;
+double NotSellUntilPrice = 0.0;
+
 int globalShock = 0 ;
 string qt = "";
 
@@ -314,7 +323,8 @@ void OnTick()
    if (current_candle_time == e) return;
    e = current_candle_time;
    
-
+   CheckNotBuyUntil ();
+   CheckNotSellUntil();
    
  
    
@@ -372,7 +382,11 @@ void OnTick()
          ClosePositionsByType(POSITION_TYPE_BUY);
          SumOpenProfits(buySum, sellSum);
          NO_BUY_state = true;
-         SumOpenProfits(buySum, sellSum);
+         NotBuyUntilPrice = box_high * 1.001 ;
+         NOT_BUY_UNTIL = true;
+         Print("NotBuyUntilPrice: ", DoubleToString(NotBuyUntilPrice,5) );
+         Print("~~~~~~~~~~~~~~~~~~~~~~~~");
+         
          //AppendLog(StringFormat("numBuy: %d,   numSell: %d", numBuy, numSell));
          double fac =  0.2 * MathAbs(numBuy - numSell);
          double nLot = fac * LotSize;
@@ -392,6 +406,10 @@ void OnTick()
          ClosePositionsByType(POSITION_TYPE_SELL);
          SumOpenProfits(buySum, sellSum);
          NO_SELL_state = true;
+         NotSellUntilPrice = box_low * 0.999 ;
+         NOT_SELL_UNTIL = true;
+         Print("NotSellUntilPrice: ", DoubleToString(NotSellUntilPrice,5) );
+         Print("~~~~~~~~~~~~~~~~~~~~~~~~");
          //AppendLog(StringFormat("numBuy: %d,   numSell: %d", numBuy, numSell));
          double fac =  0.2 * MathAbs(numBuy - numSell);
          double nLot = fac * LotSize;
@@ -421,7 +439,7 @@ void OnTick()
       return;
    }
 
-   if(numBuy > numSell + 5)
+   if(numBuy > numSell + 5 && ! NOT_SELL_UNTIL)
    {
       NO_BUY_state  = true;
       NO_SELL_state = false;
@@ -443,7 +461,7 @@ void OnTick()
       }
    }
 
-   if(numSell > numBuy + 5)
+   if(numSell > numBuy + 5 && ! NOT_BUY_UNTIL)
    {
       NO_SELL_state = true;
       NO_BUY_state  = false;
@@ -1054,5 +1072,33 @@ void DeleteAllStops()
             else
                 PrintFormat("Error deleting %I64u : %d", ticket, GetLastError());
         }
+    }
+}
+
+void CheckNotBuyUntil()
+{
+    if(!NOT_BUY_UNTIL)
+        return;  // اگر کلید غیرفعال است، کاری لازم نیست
+
+    double lastClose = iClose(_Symbol, PERIOD_M5, 1); // قیمت بسته شدن آخرین کندل کامل
+
+    if(lastClose > NotBuyUntilPrice)
+    {
+        NOT_BUY_UNTIL = false;   // شرط برطرف شد → اجازه خرید آزاد
+        Print("NOT_BUY_UNTIL غیر فعال شد؛ قیمت از حد تعیین شده عبور کرد.");
+    }
+}
+
+void CheckNotSellUntil()
+{
+    if(!NOT_SELL_UNTIL)
+        return;  // اگر کلید غیرفعال است، کاری لازم نیست
+
+    double lastClose = iClose(_Symbol, PERIOD_M5, 1); // قیمت بسته شدن آخرین کندل کامل
+
+    if(lastClose < NotSellUntilPrice)
+    {
+        NOT_SELL_UNTIL = false;   // شرط برطرف شد → اجازه خرید آزاد
+        Print("NOT_SELL_UNTIL غیر فعال شد؛ قیمت از حد تعیین شده عبور کرد.");
     }
 }
