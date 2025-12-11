@@ -362,8 +362,9 @@ void OnTick()
    ProcessShock();
    
 
-
-   if(buySum > SingleTradeProfit + CommissionPerTrade * (numBuy-1) && ! NO_SELL_state )
+   SumOpenProfits(buySum, sellSum);
+   
+   if(buySum > SingleTradeProfit + CommissionPerTrade * (numBuy-1)  ) //&& ! NO_SELL_state
    {
       if(State == 5 && LastState == 3){
          AppendLog("~~~~Closing Buys due to Top");
@@ -383,7 +384,7 @@ void OnTick()
       }
    }
 
-   if(sellSum > SingleTradeProfit + CommissionPerTrade * (numSell-1) && ! NO_BUY_state )
+   if(sellSum > SingleTradeProfit + CommissionPerTrade * (numSell-1)  ) //&& ! NO_BUY_state
    {
       if(State == 4 && LastState == 3){
          AppendLog("~~~~Closing Sells due to Bottom");
@@ -571,8 +572,12 @@ bool IsNearSameTypePosition(int type)
     double buySum = 0.0, sellSum = 0.0;
     SumOpenProfits(buySum, sellSum);
     
-    int total = (type == POSITION_TYPE_BUY)? numBuy : numSell ;
-
+    int total = (type == (int) POSITION_TYPE_BUY)? numBuy : numSell ;
+    if(total == 0) total = 1 ;
+    double profit = ( type == (int) POSITION_TYPE_BUY ) ? SingleTradeProfit + CommissionPerTrade * (numBuy-1) : SingleTradeProfit + CommissionPerTrade * (numSell-1);
+    PrintFormat("Buy(%d): %.2f , Sell(%d): %.2f, type: %d, total: %d, needed-profit: %.2f", numBuy,buySum,numSell,sellSum, type, total,profit);
+    
+    
     for(int i=0; i<total; i++)
     {
         if(m_position.SelectByIndex(i))
