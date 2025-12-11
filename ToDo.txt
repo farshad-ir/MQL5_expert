@@ -1,0 +1,3 @@
+todo Dec-11
+-total = numBuy or numSell, can distant the other order
+-why not closing works? we have enough (do close sell) (do close Buy)
