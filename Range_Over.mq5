@@ -39,6 +39,8 @@ double NotBuyUntilPrice = 0.0;
 bool NOT_SELL_UNTIL = false;
 double NotSellUntilPrice = 0.0;
 
+double preventFactor = 0.001;
+
 int globalShock = 0 ;
 string qt = "";
 
@@ -382,7 +384,7 @@ void OnTick()
          ClosePositionsByType(POSITION_TYPE_BUY);
          SumOpenProfits(buySum, sellSum);
          NO_BUY_state = true;
-         NotBuyUntilPrice = box_high * 1.001 ;
+         NotBuyUntilPrice = box_high * (1+preventFactor) ; //1.001
          NOT_BUY_UNTIL = true;
          Print("NotBuyUntilPrice: ", DoubleToString(NotBuyUntilPrice,5) );
          Print("~~~~~~~~~~~~~~~~~~~~~~~~");
@@ -406,7 +408,7 @@ void OnTick()
          ClosePositionsByType(POSITION_TYPE_SELL);
          SumOpenProfits(buySum, sellSum);
          NO_SELL_state = true;
-         NotSellUntilPrice = box_low * 0.999 ;
+         NotSellUntilPrice = box_low * (1-preventFactor) ;
          NOT_SELL_UNTIL = true;
          Print("NotSellUntilPrice: ", DoubleToString(NotSellUntilPrice,5) );
          Print("~~~~~~~~~~~~~~~~~~~~~~~~");
@@ -1077,6 +1079,8 @@ void DeleteAllStops()
 
 void CheckNotBuyUntil()
 {
+    double sb = 0 , sS = 0;
+       
     if(!NOT_BUY_UNTIL)
         return;  // اگر کلید غیرفعال است، کاری لازم نیست
 
@@ -1086,11 +1090,20 @@ void CheckNotBuyUntil()
     {
         NOT_BUY_UNTIL = false;   // شرط برطرف شد → اجازه خرید آزاد
         Print("NOT_BUY_UNTIL غیر فعال شد؛ قیمت از حد تعیین شده عبور کرد.");
+    }else
+    if(lastClose < NotBuyUntilPrice - 5 * preventFactor){
+        SumOpenProfits(sb,sS);
+        if(numBuy > 0){
+            NOT_BUY_UNTIL = false;   
+            Print("NOT_BUY_UNTIL غیر فعال شد چون قیمت ۲۰۰ پیپ پایین رفت");
+        }
     }
 }
 
 void CheckNotSellUntil()
 {
+    double sb = 0 , sS = 0;
+    
     if(!NOT_SELL_UNTIL)
         return;  // اگر کلید غیرفعال است، کاری لازم نیست
 
@@ -1100,5 +1113,12 @@ void CheckNotSellUntil()
     {
         NOT_SELL_UNTIL = false;   // شرط برطرف شد → اجازه خرید آزاد
         Print("NOT_SELL_UNTIL غیر فعال شد؛ قیمت از حد تعیین شده عبور کرد.");
+    }else
+    if(lastClose > NotSellUntilPrice + 5 * preventFactor ){
+        SumOpenProfits(sb,sS);
+        if( numSell > 0 ){
+            NOT_SELL_UNTIL = false;   
+            Print("NOT_SELL_UNTIL غیر فعال شد چون قیمت ۲۰۰ پی بالا رفت");
+        }
     }
 }
