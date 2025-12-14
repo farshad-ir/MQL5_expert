@@ -47,6 +47,7 @@ void OnTick()
       StoreHigh(i, rank);
       DrawTrendFromHighs();
    }
+   UpdateLowTrends(1);
 
 }
 
@@ -162,31 +163,6 @@ int FindLowestLowIndex(datetime t1, datetime t2)
    return minIdx;
 }
 
-//+------------------------------------------------------------------+
-//| Draw Low Star
-//+------------------------------------------------------------------+
-void DrawLowStar(int index)
-{
-   datetime t = iTime(_Symbol, PERIOD_CURRENT, index);
-   double   p = iLow(_Symbol, PERIOD_CURRENT, index) - _Point*50;
-
-   string name = "LowStar_" + (string)t;
-   if(ObjectFind(0, name) != -1) return;
-
-   ObjectCreate(0, name, OBJ_TEXT, 0, t, p);
-   ObjectSetString(0, name, OBJPROP_TEXT, "★");
-   ObjectSetString(0, name, OBJPROP_FONT, "Arial");
-   ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 14);
-   ObjectSetInteger(0, name, OBJPROP_COLOR, clrAqua);
-
-   // ---------- ذخیره در آرایه ----------
-   if(LowCount < MAX_LOWS)
-   {
-      LowTime[LowCount] = t;
-      LowPrice[LowCount] = p;
-      LowCount++;
-   }
-}
 
 
 //+------------------------------------------------------------------+
@@ -234,4 +210,144 @@ void DrawTrendFromHighs()
    }
 }
 //+------------------------------------------------------------------+
+//--------------------------low trends
+//
+struct LowTrend
+{
+    datetime tStart;        // زمان شروع ترند (Low قبلی)
+    double   pStart;        // قیمت شروع ترند
+    double   slope;         // شیب ترند
+    bool     active;        // وضعیت فعال بودن ترند
+    int      barsAfterBreak; // شمارنده بعد از شکست (۱۰ کندل)
+    string   lineName;      // نام خط روی چارت
+};
 
+#define MAX_ACTIVE_TRENDS 100
+LowTrend ActiveTrends[MAX_ACTIVE_TRENDS];
+int ActiveTrendCount = 0;
+
+//-------------------- تابع ذخیره Low و افزودن ترند --------------------
+void DrawLowStar(int index)
+{
+    datetime t = iTime(_Symbol, PERIOD_CURRENT, index);
+    double   p = iLow(_Symbol, PERIOD_CURRENT, index) - _Point*50;
+
+    string name = "LowStar_" + (string)t;
+    if(ObjectFind(0, name) == -1)
+    {
+        ObjectCreate(0, name, OBJ_TEXT, 0, t, p);
+        ObjectSetString(0, name, OBJPROP_TEXT, "★");
+        ObjectSetString(0, name, OBJPROP_FONT, "Arial");
+        ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 14);
+        ObjectSetInteger(0, name, OBJPROP_COLOR, clrAqua);
+    }
+
+    // ذخیره در آرایه Lowها
+    if(LowCount >= MAX_LOWS) return;
+
+    LowTime[LowCount] = t;
+    LowPrice[LowCount] = p;
+
+    // رسم خط به Low قبلی
+    if(LowCount > 0)
+    {
+        string lineName = "LowTrend_" + (string)LowTime[LowCount-1] + "_" + (string)t;
+        if(ObjectFind(0, lineName) == -1)
+        {
+            ObjectCreate(0, lineName, OBJ_TREND, 0,
+                         LowTime[LowCount-1], LowPrice[LowCount-1],
+                         t, p);
+            ObjectSetInteger(0, lineName, OBJPROP_COLOR, clrAqua);
+            ObjectSetInteger(0, lineName, OBJPROP_WIDTH, 2);
+        }
+
+        // افزودن ترند جدید
+        AddLowTrend(LowTime[LowCount-1], LowPrice[LowCount-1], t, p);
+    }
+
+    LowCount++;
+}
+
+//-------------------- افزودن ترند جدید --------------------
+void AddLowTrend(datetime tPrev, double pPrev, datetime tNew, double pNew)
+{
+    if(ActiveTrendCount >= MAX_ACTIVE_TRENDS) return;
+
+    double slope = CalculateSlope(tPrev, pPrev, tNew, pNew);
+    if(slope <= 0) return; // فقط شیب مثبت
+
+    LowTrend tr;
+    tr.tStart = tPrev;
+    tr.pStart = pPrev;
+    tr.slope  = slope;
+    tr.active = true;
+    tr.barsAfterBreak = 0;
+    tr.lineName = "LowTrend_" + (string)tPrev + "_" + (string)tNew;
+
+    // رسم خط اصلی
+    if(ObjectFind(0, tr.lineName) == -1)
+    {
+        ObjectCreate(0, tr.lineName, OBJ_TREND, 0, tPrev, pPrev, tNew, pNew);
+        ObjectSetInteger(0, tr.lineName, OBJPROP_COLOR, clrAqua);
+        ObjectSetInteger(0, tr.lineName, OBJPROP_WIDTH, 2);
+    }
+
+    ActiveTrends[ActiveTrendCount++] = tr;
+}
+
+//-------------------- بروزرسانی ترندهای فعال --------------------
+void UpdateLowTrends(int currentBar)
+{
+    // غیرفعال‌سازی ترندهای با شیب کمتر
+    if(LowCount >= 2)
+    {
+        double lastSlope = CalculateSlope(
+            LowTime[LowCount-2], LowPrice[LowCount-2],
+            LowTime[LowCount-1], LowPrice[LowCount-1]
+        );
+
+        for(int i=0; i<ActiveTrendCount; i++)
+        {
+            if(ActiveTrends[i].active && lastSlope > ActiveTrends[i].slope)
+                ActiveTrends[i].active = false;
+        }
+    }
+
+    // بروزرسانی ترندهای فعال
+    for(int i=0; i<ActiveTrendCount; i++)
+    {
+        if(!ActiveTrends[i].active) continue;
+
+        datetime t1  = ActiveTrends[i].tStart;
+        double   p1  = ActiveTrends[i].pStart;
+        double   slope = ActiveTrends[i].slope;
+
+        datetime tCurrent = iTime(_Symbol, PERIOD_CURRENT, currentBar);
+        double trendPrice = p1 + slope * (tCurrent - t1);
+        double closePrice = iClose(_Symbol, PERIOD_CURRENT, currentBar);
+
+        // --- تشخیص شکست ---
+        if(ActiveTrends[i].barsAfterBreak == 0)
+        {
+            if(closePrice < trendPrice)
+                ActiveTrends[i].barsAfterBreak = 1;
+        }
+        else
+        {
+            ActiveTrends[i].barsAfterBreak++;
+            if(ActiveTrends[i].barsAfterBreak > 10)
+            {
+                ActiveTrends[i].active = false;
+                continue;
+            }
+        }
+
+        // رسم خط Extend
+        string extLineName = "LowTrendExt_" + (string)t1;
+        ObjectDelete(0, extLineName); // برای آپدیت صحیح
+        ObjectCreate(0, extLineName, OBJ_TREND, 0,
+                     t1, p1, tCurrent, trendPrice);
+        ObjectSetInteger(0, extLineName, OBJPROP_COLOR, clrAqua);
+        ObjectSetInteger(0, extLineName, OBJPROP_WIDTH, 1);
+    }
+}
