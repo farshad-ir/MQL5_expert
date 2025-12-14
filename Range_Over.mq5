@@ -39,7 +39,7 @@ double NotBuyUntilPrice = 0.0;
 bool NOT_SELL_UNTIL = false;
 double NotSellUntilPrice = 0.0;
 
-double preventFactor = 0.001;
+double preventFactor = 0.01;
 
 int globalShock = 0 ;
 string qt = "";
@@ -450,16 +450,16 @@ void OnTick()
       if(!adjustmentDone && !NO_SELL_state)
       {
          //double adjLot = LotSize * (numBuy - numSell);
-         if(m_trade.Sell(LotSize, _Symbol))
-         {
+         //if(m_trade.Sell(LotSize, _Symbol))
+         //{
             adjustmentDone = true;
             PrintFormat("⚖️ معامله تعدیلی SELL %.2f باز شد برای تعادل حجم‌ها", LotSize);
             globalShock ++ ;
             ShockActive = true ;
             AppendLog(StringFormat("Shock %d: CloseBuys", globalShock));
 
-         }
-         else PrintFormat("❌ معامله تعدیلی SELL ناموفق. Err=%d", GetLastError());
+         //}
+         //else PrintFormat("❌ معامله تعدیلی SELL ناموفق. Err=%d", GetLastError());
       }
    }
 
@@ -472,16 +472,16 @@ void OnTick()
       if(!adjustmentDone && !NO_BUY_state)
       {
          //double adjLot = LotSize * (numSell - numBuy);
-         if(m_trade.Buy(LotSize, _Symbol))
-         {
+         //if(m_trade.Buy(LotSize, _Symbol))
+         //{
             adjustmentDone = true;
             PrintFormat("⚖️ معامله تعدیلی BUY %.2f باز شد برای تعادل حجم‌ها", LotSize);
             globalShock ++ ;
             ShockActive = true ;
             AppendLog(StringFormat("Shock %d: CloseSells", globalShock));
 
-         }
-         else PrintFormat("❌ معامله تعدیلی BUY ناموفق. Err=%d", GetLastError());
+         //}
+         //else PrintFormat("❌ معامله تعدیلی BUY ناموفق. Err=%d", GetLastError());
       }
    }
 
