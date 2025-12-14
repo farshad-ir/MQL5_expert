@@ -22,6 +22,12 @@ double   HighPrice[MAX_HIGHS];
 int      HighRank[MAX_HIGHS];
 int      HighCount = 0;
 
+#define MAX_LOWS 500
+datetime LowTime[MAX_LOWS];
+double   LowPrice[MAX_LOWS];
+int      LowCount = 0;
+
+
 //+------------------------------------------------------------------+
 void OnTick()
 {
@@ -41,6 +47,7 @@ void OnTick()
       StoreHigh(i, rank);
       DrawTrendFromHighs();
    }
+
 }
 
 //+------------------------------------------------------------------+
@@ -171,7 +178,16 @@ void DrawLowStar(int index)
    ObjectSetString(0, name, OBJPROP_FONT, "Arial");
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 14);
    ObjectSetInteger(0, name, OBJPROP_COLOR, clrAqua);
+
+   // ---------- ذخیره در آرایه ----------
+   if(LowCount < MAX_LOWS)
+   {
+      LowTime[LowCount] = t;
+      LowPrice[LowCount] = p;
+      LowCount++;
+   }
 }
+
 
 //+------------------------------------------------------------------+
 //| Draw Trend Lines and process slope
@@ -218,3 +234,4 @@ void DrawTrendFromHighs()
    }
 }
 //+------------------------------------------------------------------+
+
