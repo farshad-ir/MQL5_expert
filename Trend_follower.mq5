@@ -28,24 +28,11 @@ double   LowPrice[MAX_LOWS];
 int      LowCount = 0;
 
 //-------------------- Low Structure (Horizontal Supports)
-#define MAX_STRUCT_LOWS 1100
 
-struct LowStructure
-{
-   double   price[MAX_STRUCT_LOWS];
-   datetime time[MAX_STRUCT_LOWS];
-   int      level[MAX_STRUCT_LOWS];  // درجه هر Low
-   int      count;
 
-   void Reset()
-   {
-      count = 0;
-   }
-};
-
-LowStructure LS;
-int lowTrend_name = 0 ;
-int structure_low_name = 0;
+//LowStructure LS;
+//int lowTrend_name = 0 ;
+//هnt structure_low_name = 0;
 
 int OnInit()
 {
@@ -273,19 +260,40 @@ void DrawTrendFromHighs()
 //+------------------------------------------------------------------+
 //--------------------------low trends
 //
+//--------------------------low trends
 struct LowTrend
 {
-    datetime tStart;        // زمان شروع ترند (Low قبلی)
-    double   pStart;        // قیمت شروع ترند
-    double   slope;         // شیب ترند
-    bool     active;        // وضعیت فعال بودن ترند
-    int      barsAfterBreak; // شمارنده بعد از شکست (۱۰ کندل)
-    string   lineName;      // نام خط روی چارت
+    datetime tStart;
+    double   pStart;
+    double   slope;
+    bool     active;
+    int      barsAfterBreak;
+    string   lineName;  // LT_0, LT_1, ...
+    int      ID;        // شماره یکتا ترند
 };
 
 #define MAX_ACTIVE_TRENDS 100
 LowTrend ActiveTrends[MAX_ACTIVE_TRENDS];
 int ActiveTrendCount = 0;
+
+// شماره یکتا ستاره و ترند
+int StarID = 0;
+int LowTrendID = 0;
+
+//-------------------- Structure Low با StarID --------------------
+#define MAX_STRUCT_LOWS 1100
+
+
+struct LowStructure
+{
+    double   price[MAX_STRUCT_LOWS];
+    datetime time[MAX_STRUCT_LOWS];
+    int      level[MAX_STRUCT_LOWS];
+    int      StarID[MAX_STRUCT_LOWS];
+    int      count;
+    void Reset() { count = 0; }
+};
+LowStructure LS;
 
 //-------------------- تابع ذخیره Low و افزودن ترند --------------------
 void DrawLowStar(int index)
@@ -293,11 +301,12 @@ void DrawLowStar(int index)
     datetime t = iTime(_Symbol, PERIOD_CURRENT, index);
     double   p = iLow(_Symbol, PERIOD_CURRENT, index) - _Point*50;
 
-    string name = "LowStar_" + (string)t;
+    // نام کوتاه ستاره
+    string name = "Star_" + IntegerToString(StarID);
     if(ObjectFind(0, name) == -1)
     {
         ObjectCreate(0, name, OBJ_TEXT, 0, t, p);
-        ObjectSetString(0, name, OBJPROP_TEXT, "★");
+        ObjectSetString(0, name, OBJPROP_TEXT, "★" + IntegerToString(StarID));
         ObjectSetString(0, name, OBJPROP_FONT, "Arial");
         ObjectSetInteger(0, name, OBJPROP_FONTSIZE, 14);
         ObjectSetInteger(0, name, OBJPROP_COLOR, clrAqua);
@@ -305,30 +314,20 @@ void DrawLowStar(int index)
 
     // ذخیره در آرایه Lowها
     if(LowCount >= MAX_LOWS) return;
-
     LowTime[LowCount] = t;
     LowPrice[LowCount] = p;
 
-    // رسم خط به Low قبلی
+    // افزودن به Structure Low
+    AddStructureLow(p, t, StarID);
+
+    // رسم خط به Low قبلی و ایجاد ترند
     if(LowCount > 0)
     {
-        string lineName = "LowTrend_" + (string)LowTime[LowCount-1] + "_" + (string)t;
-        if(ObjectFind(0, lineName) == -1)
-        {
-            ObjectCreate(0, lineName, OBJ_TREND, 0,
-                         LowTime[LowCount-1], LowPrice[LowCount-1],
-                         t, p);
-            ObjectSetInteger(0, lineName, OBJPROP_COLOR, clrAqua);
-            ObjectSetInteger(0, lineName, OBJPROP_WIDTH, 2);
-        }
-        
-        // افزودن به آرایه و مرتب کردن اعضای آن
-        AddStructureLow(p, t);
-        // افزودن ترند جدید
         AddLowTrend(LowTime[LowCount-1], LowPrice[LowCount-1], t, p);
     }
 
     LowCount++;
+    StarID++;
 }
 
 //-------------------- افزودن ترند جدید --------------------
@@ -337,7 +336,6 @@ void AddLowTrend(datetime tPrev, double pPrev, datetime tNew, double pNew)
     if(ActiveTrendCount >= MAX_ACTIVE_TRENDS) return;
 
     double slope = CalculateSlope(tPrev, pPrev, tNew, pNew);
-    //if(slope <= 0) return; // فقط شیب مثبت
 
     LowTrend tr;
     tr.tStart = tPrev;
@@ -345,9 +343,10 @@ void AddLowTrend(datetime tPrev, double pPrev, datetime tNew, double pNew)
     tr.slope  = slope;
     tr.active = true;
     tr.barsAfterBreak = 0;
-    tr.lineName = "LowTrend_" + (string)tPrev + "_" + (string)tNew;
+    tr.ID = LowTrendID;
+    tr.lineName = "LT_" + IntegerToString(LowTrendID);
 
-    // رسم خط اصلی
+    // رسم خط اصلی با شماره ترند روی چارت
     if(ObjectFind(0, tr.lineName) == -1)
     {
         ObjectCreate(0, tr.lineName, OBJ_TREND, 0, tPrev, pPrev, tNew, pNew);
@@ -356,6 +355,19 @@ void AddLowTrend(datetime tPrev, double pPrev, datetime tNew, double pNew)
     }
 
     ActiveTrends[ActiveTrendCount++] = tr;
+    LowTrendID++;
+}
+
+//-------------------- افزودن Low به Structure --------------------
+void AddStructureLow(double newPrice, datetime newTime, int starID)
+{
+    if(LS.count >= MAX_STRUCT_LOWS) return;
+
+    LS.price[LS.count] = newPrice;
+    LS.time[LS.count]  = newTime;
+    LS.level[LS.count] = 0;     // درجه Low جدید
+    LS.StarID[LS.count] = starID;
+    LS.count++;
 }
 
 //-------------------- بروزرسانی ترندهای فعال --------------------
@@ -376,7 +388,7 @@ void UpdateLowTrends(int currentBar)
         }
     }
 
-    // بروزرسانی ترندهای فعال
+    // بروزرسانی ترندهای فعال و رسم Extend تا کندل جاری
     for(int i=0; i<ActiveTrendCount; i++)
     {
         if(!ActiveTrends[i].active) continue;
@@ -405,9 +417,9 @@ void UpdateLowTrends(int currentBar)
             }
         }
 
-        // رسم خط Extend
-        string extLineName = "LowTrendExt_" + (string)t1;
-        ObjectDelete(0, extLineName); // برای آپدیت صحیح
+        // رسم خط Extend با نام کوتاه ترند
+        string extLineName = ActiveTrends[i].lineName + "_ext";
+        ObjectDelete(0, extLineName); // آپدیت
         ObjectCreate(0, extLineName, OBJ_TREND, 0,
                      t1, p1, tCurrent, trendPrice);
         ObjectSetInteger(0, extLineName, OBJPROP_COLOR, clrAqua);
@@ -415,84 +427,8 @@ void UpdateLowTrends(int currentBar)
     }
 }
 
-
-
-
-void AddStructureLow(double newPrice, datetime newTime)
-{
-    if(LS.count == 0)
-    {
-        LS.price[0] = newPrice;
-        LS.time[0]  = newTime;
-        LS.level[0] = 0;      
-        LS.count = 1;
-        return;
-    }
-
-    int insertPos = LS.count;  // به‌صورت پیش‌فرض انتها
-
-    // پیدا کردن محل درج
-    for(int i=0; i<LS.count; i++)
-    {
-        if(newPrice < LS.price[i])
-        {
-            insertPos = i;
-            break;
-        }
-    }
-
-    // --- ذخیره نسخه قبلی برای مقایسه ---
-    double oldPrices[MAX_STRUCT_LOWS];
-    datetime oldTimes[MAX_STRUCT_LOWS];
-    int oldCount = LS.count;
-    for(int i=0; i<oldCount; i++)
-    {
-        oldPrices[i] = LS.price[i];
-        oldTimes[i]  = LS.time[i];
-    }
-
-    // --- شیفت دادن عناصر برای ایجاد جایگاه ---
-    int maxShift = MathMin(LS.count, MAX_STRUCT_LOWS-1);
-    for(int j=maxShift; j>insertPos; j--)
-    {
-        LS.price[j] = LS.price[j-1];
-        LS.time[j]  = LS.time[j-1];
-        LS.level[j] = LS.level[j-1];
-    }
-
-    // درج Low جدید
-    LS.price[insertPos] = newPrice;
-    LS.time[insertPos]  = newTime;
-    LS.level[insertPos] = 0;  // درجه Low جدید = 0
-
-    if(LS.count < MAX_STRUCT_LOWS)
-        LS.count++;
-
-    // --- بروزرسانی سطح (level) سایر Lowها ---
-    for(int i=0; i<oldCount; i++)
-    {
-        bool found = false;
-        for(int j=0; j<LS.count; j++)
-        {
-            if(LS.price[j] == oldPrices[i] && LS.time[j] == oldTimes[i])
-            {
-                found = true;
-                LS.level[j]++;   // جای ثابت → +1
-                break;
-            }
-        }
-        if(!found)
-        {
-            // Low قبلی حذف یا جابجا شده → level = 0
-            for(int j=0; j<LS.count; j++)
-            {
-                if(LS.price[j] == oldPrices[i] && LS.time[j] != oldTimes[i])
-                    LS.level[j] = 0;
-            }
-        }
-    }
-}
-#define NEAR_POINTS 30   // مثلاً 3 پیپ در 5-digit
+//-------------------- بررسی نزدیک شدن و شکست ترند و Structure --------------------
+#define NEAR_POINTS 30
 double NEAR_DIST = NEAR_POINTS * _Point;
 
 void CheckLowTrendEvents(int currentBar)
@@ -512,17 +448,13 @@ void CheckLowTrendEvents(int currentBar)
         double trend0 = tr.pStart + tr.slope * (t0 - tr.tStart);
         double trend1 = tr.pStart + tr.slope * (t1 - tr.tStart);
 
-        // --- نزدیک شدن ---
+        // نزدیک شدن
         if(MathAbs(close0 - trend0) <= NEAR_DIST)
-        {
-            Print("📐 Near LowTrend → ", tr.lineName);
-        }
+            Print("📐 Near LowTrend → ", tr.lineName, " | ID=", tr.ID);
 
-        // --- شکست (قطع قطعی) ---
+        // شکست
         if(close1 > trend1 && close0 < trend0)
-        {
-            Print("❌ Break LowTrend → ", tr.lineName);
-        }
+            Print("❌ Break LowTrend → ", tr.lineName, " | ID=", tr.ID);
     }
 }
 
@@ -535,18 +467,16 @@ void CheckStructureLowEvents(int currentBar)
     {
         double levelPrice = LS.price[i];
 
-        // --- نزدیک شدن ---
+        // نزدیک شدن
         if(MathAbs(close0 - levelPrice) <= NEAR_DIST)
-        {
-            Print("📌 Near Structure Low | Level=", LS.level[i],
-                  " Price=", DoubleToString(levelPrice, _Digits));
-        }
+            Print("📌 Near Structure Low | StarID=", LS.StarID[i],
+                  " Level=", LS.level[i],
+                  " Price=", DoubleToString(levelPrice,_Digits));
 
-        // --- قطع کردن ---
+        // شکست
         if(close1 > levelPrice && close0 < levelPrice)
-        {
-            Print("❌ Break Structure Low | Level=", LS.level[i],
-                  " Price=", DoubleToString(levelPrice, _Digits));
-        }
+            Print("❌ Break Structure Low | StarID=", LS.StarID[i],
+                  " Level=", LS.level[i],
+                  " Price=", DoubleToString(levelPrice,_Digits));
     }
 }
