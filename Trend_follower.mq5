@@ -28,7 +28,7 @@ double   LowPrice[MAX_LOWS];
 int      LowCount = 0;
 
 //-------------------- Low Structure (Horizontal Supports)
-#define MAX_STRUCT_LOWS 11
+#define MAX_STRUCT_LOWS 1100
 
 struct LowStructure
 {
@@ -44,7 +44,8 @@ struct LowStructure
 };
 
 LowStructure LS;
-
+int lowTrend_name = 0 ;
+int structure_low_name = 0;
 
 int OnInit()
 {
@@ -52,33 +53,42 @@ int OnInit()
    return INIT_SUCCEEDED;
 }
 //+------------------------------------------------------------------+
+
+int lastLevel_0 = 0;
+
 void OnTick()
 {
-   datetime t0 = iTime(_Symbol, PERIOD_CURRENT, 0);
-   if(last_bar_time == t0) return;
-   last_bar_time = t0;
+    datetime t0 = iTime(_Symbol, PERIOD_CURRENT, 0);
+    if(last_bar_time == t0) return;
+    last_bar_time = t0;
+    
+    if(Bars(_Symbol, PERIOD_CURRENT) < Lookback*2 + 20)
+       return;
 
-   if(Bars(_Symbol, PERIOD_CURRENT) < Lookback*2 + 20)
-      return;
-
-   int i = Lookback;
-
-   if(IsSwingHigh(i)) { int rank = CalculateHighRank(i); DrawHighStar(i, rank); StoreHigh(i, rank); DrawTrendFromHighs();}
-   
-   
-   UpdateLowTrends(1);
+    int i = Lookback;
+    
+    if(IsSwingHigh(i)) { int rank = CalculateHighRank(i); DrawHighStar(i, rank); StoreHigh(i, rank); DrawTrendFromHighs();}
+    
+    
+    UpdateLowTrends(1);
    
    
     // مثال: بررسی اولین Low در ساختار
-    if(LS.count > 0 && LS.level[0] >= 1)
-    {
-        string msg = StringFormat("Low پایدار: قیمت = %.5f, level = %d", 
-                                  LS.price[0], LS.level[0]);
-        Alert(msg);   // نمایش آلارم
-        Print(msg);   // چاپ در لاگ
-    }
+    //if(LS.count > 0 && LS.level[0] >= 1 && lastLevel_0 != LS.level[0] )
+    //{
+    //    string msg = StringFormat("Low پایدار: قیمت = %.5f, level = %d", 
+    //                              LS.price[0], LS.level[0]);
+    //    Alert(msg);   // نمایش آلارم
+    //    Print(msg);   // چاپ در لاگ
+    //    lastLevel_0 = LS.level[0];
+    //}
    
    
+    // 👇 اینجا منطق گزارش
+    CheckLowTrendEvents(1);
+    CheckStructureLowEvents(1);
+    
+    
    
    
    
@@ -479,6 +489,64 @@ void AddStructureLow(double newPrice, datetime newTime)
                 if(LS.price[j] == oldPrices[i] && LS.time[j] != oldTimes[i])
                     LS.level[j] = 0;
             }
+        }
+    }
+}
+#define NEAR_POINTS 30   // مثلاً 3 پیپ در 5-digit
+double NEAR_DIST = NEAR_POINTS * _Point;
+
+void CheckLowTrendEvents(int currentBar)
+{
+    datetime t0 = iTime(_Symbol, PERIOD_CURRENT, currentBar);
+    datetime t1 = iTime(_Symbol, PERIOD_CURRENT, currentBar + 1);
+
+    double close0 = iClose(_Symbol, PERIOD_CURRENT, currentBar);
+    double close1 = iClose(_Symbol, PERIOD_CURRENT, currentBar + 1);
+
+    for(int i=0; i<ActiveTrendCount; i++)
+    {
+        if(!ActiveTrends[i].active) continue;
+
+        LowTrend tr = ActiveTrends[i];
+
+        double trend0 = tr.pStart + tr.slope * (t0 - tr.tStart);
+        double trend1 = tr.pStart + tr.slope * (t1 - tr.tStart);
+
+        // --- نزدیک شدن ---
+        if(MathAbs(close0 - trend0) <= NEAR_DIST)
+        {
+            Print("📐 Near LowTrend → ", tr.lineName);
+        }
+
+        // --- شکست (قطع قطعی) ---
+        if(close1 > trend1 && close0 < trend0)
+        {
+            Print("❌ Break LowTrend → ", tr.lineName);
+        }
+    }
+}
+
+void CheckStructureLowEvents(int currentBar)
+{
+    double close0 = iClose(_Symbol, PERIOD_CURRENT, currentBar);
+    double close1 = iClose(_Symbol, PERIOD_CURRENT, currentBar + 1);
+
+    for(int i=0; i<LS.count; i++)
+    {
+        double levelPrice = LS.price[i];
+
+        // --- نزدیک شدن ---
+        if(MathAbs(close0 - levelPrice) <= NEAR_DIST)
+        {
+            Print("📌 Near Structure Low | Level=", LS.level[i],
+                  " Price=", DoubleToString(levelPrice, _Digits));
+        }
+
+        // --- قطع کردن ---
+        if(close1 > levelPrice && close0 < levelPrice)
+        {
+            Print("❌ Break Structure Low | Level=", LS.level[i],
+                  " Price=", DoubleToString(levelPrice, _Digits));
         }
     }
 }
