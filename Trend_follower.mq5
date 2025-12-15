@@ -27,7 +27,30 @@ datetime LowTime[MAX_LOWS];
 double   LowPrice[MAX_LOWS];
 int      LowCount = 0;
 
+//-------------------- Low Structure (Horizontal Supports)
+#define MAX_STRUCT_LOWS 11
 
+struct LowStructure
+{
+   double   price[MAX_STRUCT_LOWS];
+   datetime time[MAX_STRUCT_LOWS];
+   int      level[MAX_STRUCT_LOWS];  // درجه هر Low
+   int      count;
+
+   void Reset()
+   {
+      count = 0;
+   }
+};
+
+LowStructure LS;
+
+
+int OnInit()
+{
+   LS.Reset();
+   return INIT_SUCCEEDED;
+}
 //+------------------------------------------------------------------+
 void OnTick()
 {
@@ -40,14 +63,42 @@ void OnTick()
 
    int i = Lookback;
 
-   if(IsSwingHigh(i))
-   {
-      int rank = CalculateHighRank(i);
-      DrawHighStar(i, rank);
-      StoreHigh(i, rank);
-      DrawTrendFromHighs();
-   }
+   if(IsSwingHigh(i)) { int rank = CalculateHighRank(i); DrawHighStar(i, rank); StoreHigh(i, rank); DrawTrendFromHighs();}
+   
+   
    UpdateLowTrends(1);
+   
+   
+    // مثال: بررسی اولین Low در ساختار
+    if(LS.count > 0 && LS.level[0] >= 1)
+    {
+        string msg = StringFormat("Low پایدار: قیمت = %.5f, level = %d", 
+                                  LS.price[0], LS.level[0]);
+        Alert(msg);   // نمایش آلارم
+        Print(msg);   // چاپ در لاگ
+    }
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
 
 }
 
@@ -260,7 +311,9 @@ void DrawLowStar(int index)
             ObjectSetInteger(0, lineName, OBJPROP_COLOR, clrAqua);
             ObjectSetInteger(0, lineName, OBJPROP_WIDTH, 2);
         }
-
+        
+        // افزودن به آرایه و مرتب کردن اعضای آن
+        AddStructureLow(p, t);
         // افزودن ترند جدید
         AddLowTrend(LowTime[LowCount-1], LowPrice[LowCount-1], t, p);
     }
@@ -274,7 +327,7 @@ void AddLowTrend(datetime tPrev, double pPrev, datetime tNew, double pNew)
     if(ActiveTrendCount >= MAX_ACTIVE_TRENDS) return;
 
     double slope = CalculateSlope(tPrev, pPrev, tNew, pNew);
-    if(slope <= 0) return; // فقط شیب مثبت
+    //if(slope <= 0) return; // فقط شیب مثبت
 
     LowTrend tr;
     tr.tStart = tPrev;
@@ -349,5 +402,83 @@ void UpdateLowTrends(int currentBar)
                      t1, p1, tCurrent, trendPrice);
         ObjectSetInteger(0, extLineName, OBJPROP_COLOR, clrAqua);
         ObjectSetInteger(0, extLineName, OBJPROP_WIDTH, 1);
+    }
+}
+
+
+
+
+void AddStructureLow(double newPrice, datetime newTime)
+{
+    if(LS.count == 0)
+    {
+        LS.price[0] = newPrice;
+        LS.time[0]  = newTime;
+        LS.level[0] = 0;      
+        LS.count = 1;
+        return;
+    }
+
+    int insertPos = LS.count;  // به‌صورت پیش‌فرض انتها
+
+    // پیدا کردن محل درج
+    for(int i=0; i<LS.count; i++)
+    {
+        if(newPrice < LS.price[i])
+        {
+            insertPos = i;
+            break;
+        }
+    }
+
+    // --- ذخیره نسخه قبلی برای مقایسه ---
+    double oldPrices[MAX_STRUCT_LOWS];
+    datetime oldTimes[MAX_STRUCT_LOWS];
+    int oldCount = LS.count;
+    for(int i=0; i<oldCount; i++)
+    {
+        oldPrices[i] = LS.price[i];
+        oldTimes[i]  = LS.time[i];
+    }
+
+    // --- شیفت دادن عناصر برای ایجاد جایگاه ---
+    int maxShift = MathMin(LS.count, MAX_STRUCT_LOWS-1);
+    for(int j=maxShift; j>insertPos; j--)
+    {
+        LS.price[j] = LS.price[j-1];
+        LS.time[j]  = LS.time[j-1];
+        LS.level[j] = LS.level[j-1];
+    }
+
+    // درج Low جدید
+    LS.price[insertPos] = newPrice;
+    LS.time[insertPos]  = newTime;
+    LS.level[insertPos] = 0;  // درجه Low جدید = 0
+
+    if(LS.count < MAX_STRUCT_LOWS)
+        LS.count++;
+
+    // --- بروزرسانی سطح (level) سایر Lowها ---
+    for(int i=0; i<oldCount; i++)
+    {
+        bool found = false;
+        for(int j=0; j<LS.count; j++)
+        {
+            if(LS.price[j] == oldPrices[i] && LS.time[j] == oldTimes[i])
+            {
+                found = true;
+                LS.level[j]++;   // جای ثابت → +1
+                break;
+            }
+        }
+        if(!found)
+        {
+            // Low قبلی حذف یا جابجا شده → level = 0
+            for(int j=0; j<LS.count; j++)
+            {
+                if(LS.price[j] == oldPrices[i] && LS.time[j] != oldTimes[i])
+                    LS.level[j] = 0;
+            }
+        }
     }
 }
