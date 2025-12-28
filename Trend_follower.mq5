@@ -8,6 +8,20 @@
 #property version   "2.60"
 #property strict
 
+
+#include <Trade\Trade.mqh>
+#include <Trade\SymbolInfo.mqh>
+#include <Trade\PositionInfo.mqh>
+#include <Trade\AccountInfo.mqh>
+
+CTrade            m_trade;                      // trading object
+CSymbolInfo       m_symbol;                     // symbol info object
+CPositionInfo     m_position;                   // trade position object
+CAccountInfo      m_account; 				         // account info wrapper
+
+
+
+
 //-------------------- inputs
 int Lookback      = 3;
 int MaxRank       = 10;
@@ -59,9 +73,9 @@ int lastLevel_0 = 0;
 
 void OnTick()
 {
-    datetime t0 = iTime(_Symbol, PERIOD_CURRENT, 0);
-    if(last_bar_time == t0) return;
-    last_bar_time = t0;
+    datetime tt = iTime(_Symbol, PERIOD_CURRENT, 0);
+    if(last_bar_time == tt) return;
+    last_bar_time = tt;
     
     if(Bars(_Symbol, PERIOD_CURRENT) < Lookback*2 + 20)
        return;
@@ -96,14 +110,39 @@ void OnTick()
     // بعد نقطه پایین و بعد ستاره دوم و پاینی لول ۱ می شود می بینیم حرکت چندیم پیپ بوده و رنج نیست رفته لمس کرده برگشته پس می شود فروش را بست و خرید زد
     
     //UTrends
-    //int Up_id
+    //Up_id
+    
     //LTrends
     //L_count
-   
-   
-   
-   
-   
+    //double lp = iClose(_Symbol,PERIOD_M5,1);
+    //Print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",L_count);
+    
+    if( L_count < 1 || Up_id < 1 ) return;
+    
+    datetime t0 = iTime(_Symbol, PERIOD_CURRENT, 1);
+    datetime t1 = iTime(_Symbol, PERIOD_CURRENT, 2);
+
+    double close0 = iClose(_Symbol, PERIOD_CURRENT, 1);
+    double close1 = iClose(_Symbol, PERIOD_CURRENT, 2);
+    LowTrend tr = LTrends[L_count-1];
+    double trend0 = tr.pStart + tr.slope * (t0 - tr.tStart);
+    double trend1 = tr.pStart + tr.slope * (t1 - tr.tStart);
+        
+            
+    if( tr.slope < 0 ){
+       if(close1 > trend1 && close0 < trend0){
+            //what about up trends
+
+               int k = Up_id -1 ;
+               if(UTrends[k].slope < 0) {
+                  double SL = UTrends[k].pStart;
+                  double ASK = SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+                  double TP = ASK - 2.0 * MathAbs(ASK-SL);
+                  m_trade.Sell(0.01,_Symbol,ASK,SL,TP);
+              }
+       }
+    }
+  
    
    
    
