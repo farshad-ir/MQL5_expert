@@ -9,12 +9,13 @@
 #property strict
 
 //-------------------- inputs
-input int Lookback      = 3;
-input int MaxRank       = 10;
-input int MinTrendRank  = 2;
+int Lookback      = 3;
+int MaxRank       = 10;
+int MinTrendRank  = 2;
 
 //-------------------- globals
 datetime last_bar_time = 0;
+int Up_id = 0 ;
 
 #define MAX_HIGHS 500
 datetime HighTime[MAX_HIGHS];
@@ -27,12 +28,25 @@ datetime LowTime[MAX_LOWS];
 double   LowPrice[MAX_LOWS];
 int      LowCount = 0;
 
-//-------------------- Low Structure (Horizontal Supports)
 
 
-//LowStructure LS;
-//int lowTrend_name = 0 ;
-//هnt structure_low_name = 0;
+
+struct UpTrend
+{
+    datetime tStart, tEnd;
+    double   pStart, pEnd;
+    double   slope;
+    string   lineName;  // LT_0, LT_1, ...
+    int      ID;        // شماره یکتا ترند
+};
+
+#define MAX_ACTIVE_UTRENDS 1000
+UpTrend UTrends[MAX_ACTIVE_UTRENDS];
+
+
+
+
+
 
 int OnInit()
 {
@@ -230,7 +244,8 @@ void DrawTrendFromHighs()
          if(last != -1 && HighRank[i] >= HighRank[last])
          {
             string name = "Trend_" + (string)HighTime[last] + "_" + (string)HighTime[i];
-
+            //string name = "UP_"+(string)Up_id;
+            
             if(ObjectFind(0, name) == -1)
             {
                ObjectCreate(0, name, OBJ_TREND, 0,
@@ -243,7 +258,18 @@ void DrawTrendFromHighs()
                double slope = CalculateSlope(
                                  HighTime[last], HighPrice[last],
                                  HighTime[i],    HighPrice[i]);
-
+                     
+                          
+               
+               UTrends[Up_id].ID = Up_id;
+               UTrends[Up_id].lineName = "UT_"+(string)Up_id;
+               UTrends[Up_id].pEnd = HighPrice[i];
+               UTrends[Up_id].tEnd = HighTime[i];
+               UTrends[Up_id].pStart = HighPrice[last];
+               UTrends[Up_id].tStart = HighTime[last];
+               UTrends[Up_id].slope = slope;
+               Print(UTrends[Up_id].lineName,": -------------------------------------------, created!");
+               Up_id ++ ; 
                // اگر ترند نزولی است → کمترین Low بین دو High
                if(slope < 0)
                {
@@ -275,7 +301,7 @@ struct LowTrend
     int      ID;        // شماره یکتا ترند
 };
 
-#define MAX_ACTIVE_TRENDS 100
+#define MAX_ACTIVE_TRENDS 1000
 LowTrend ActiveTrends[MAX_ACTIVE_TRENDS];
 int ActiveTrendCount = 0;
 
