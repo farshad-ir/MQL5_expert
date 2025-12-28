@@ -15,7 +15,7 @@ int MinTrendRank  = 2;
 
 //-------------------- globals
 datetime last_bar_time = 0;
-int Up_id = 0 ;
+
 
 #define MAX_HIGHS 500
 datetime HighTime[MAX_HIGHS];
@@ -30,7 +30,7 @@ int      LowCount = 0;
 
 
 
-
+int Up_id = 0 ;
 struct UpTrend
 {
     datetime tStart, tEnd;
@@ -94,10 +94,11 @@ void OnTick()
     // وقتی لول ۱ می شود خرید بزنیم در طی چند کندل به پایین می رود 
     // اگر ترندهای قهوه ای را ببینیم گمی نزولی بوده و دو تا افقی و نزولی بنظر می رسد پایه استاپلاس داریم و می توانیم فروش کنیم
     // بعد نقطه پایین و بعد ستاره دوم و پاینی لول ۱ می شود می بینیم حرکت چندیم پیپ بوده و رنج نیست رفته لمس کرده برگشته پس می شود فروش را بست و خرید زد
-   
-   
-   
-   
+    
+    //UTrends
+    //int Up_id
+    //LTrends
+    //L_count
    
    
    
@@ -302,8 +303,8 @@ struct LowTrend
 };
 
 #define MAX_ACTIVE_TRENDS 1000
-LowTrend ActiveTrends[MAX_ACTIVE_TRENDS];
-int ActiveTrendCount = 0;
+LowTrend LTrends[MAX_ACTIVE_TRENDS];
+int L_count = 0;
 
 // شماره یکتا ستاره و ترند
 int StarID = 0;
@@ -362,7 +363,7 @@ void DrawLowStar(int index)
 //-------------------- افزودن ترند جدید --------------------
 void AddLowTrend(datetime tPrev, double pPrev, datetime tNew, double pNew)
 {
-    if(ActiveTrendCount >= MAX_ACTIVE_TRENDS) return;
+    if(L_count >= MAX_ACTIVE_TRENDS) return;
 
     double slope = CalculateSlope(tPrev, pPrev, tNew, pNew);
 
@@ -400,7 +401,7 @@ void AddLowTrend(datetime tPrev, double pPrev, datetime tNew, double pNew)
           ObjectSetString(0, textName, OBJPROP_FONT, "Arial");
       }
 
-    ActiveTrends[ActiveTrendCount++] = tr;
+    LTrends[L_count++] = tr;
     LowTrendID++;
 }
 
@@ -482,44 +483,44 @@ void UpdateLowTrends(int currentBar)
             LowTime[LowCount-1], LowPrice[LowCount-1]
         );
 
-        for(int i=0; i<ActiveTrendCount; i++)
+        for(int i=0; i<L_count; i++)
         {
-            if(ActiveTrends[i].active && lastSlope > ActiveTrends[i].slope)
-                ActiveTrends[i].active = false;
+            if(LTrends[i].active && lastSlope > LTrends[i].slope)
+                LTrends[i].active = false;
         }
     }
 
     // بروزرسانی ترندهای فعال و رسم Extend تا کندل جاری
-    for(int i=0; i<ActiveTrendCount; i++)
+    for(int i=0; i<L_count; i++)
     {
-        if(!ActiveTrends[i].active) continue;
+        if(!LTrends[i].active) continue;
 
-        datetime t1  = ActiveTrends[i].tStart;
-        double   p1  = ActiveTrends[i].pStart;
-        double   slope = ActiveTrends[i].slope;
+        datetime t1  = LTrends[i].tStart;
+        double   p1  = LTrends[i].pStart;
+        double   slope = LTrends[i].slope;
 
         datetime tCurrent = iTime(_Symbol, PERIOD_CURRENT, currentBar);
         double trendPrice = p1 + slope * (tCurrent - t1);
         double closePrice = iClose(_Symbol, PERIOD_CURRENT, currentBar);
 
         // --- تشخیص شکست ---
-        if(ActiveTrends[i].barsAfterBreak == 0)
+        if(LTrends[i].barsAfterBreak == 0)
         {
             if(closePrice < trendPrice)
-                ActiveTrends[i].barsAfterBreak = 1;
+                LTrends[i].barsAfterBreak = 1;
         }
         else
         {
-            ActiveTrends[i].barsAfterBreak++;
-            if(ActiveTrends[i].barsAfterBreak > 50)
+            LTrends[i].barsAfterBreak++;
+            if(LTrends[i].barsAfterBreak > 50)
             {
-                ActiveTrends[i].active = false;
+                LTrends[i].active = false;
                 continue;
             }
         }
 
         // رسم خط Extend با نام کوتاه ترند
-        string extLineName = ActiveTrends[i].lineName + "_ext";
+        string extLineName = LTrends[i].lineName + "_ext";
         ObjectDelete(0, extLineName); // آپدیت
         ObjectCreate(0, extLineName, OBJ_TREND, 0,
                      t1, p1, tCurrent, trendPrice);
@@ -540,11 +541,11 @@ void CheckLowTrendEvents(int currentBar)
     double close0 = iClose(_Symbol, PERIOD_CURRENT, currentBar);
     double close1 = iClose(_Symbol, PERIOD_CURRENT, currentBar + 1);
 
-    for(int i=0; i<ActiveTrendCount; i++)
+    for(int i=0; i<L_count; i++)
     {
-        if(!ActiveTrends[i].active) continue;
+        if(!LTrends[i].active) continue;
 
-        LowTrend tr = ActiveTrends[i];
+        LowTrend tr = LTrends[i];
 
         double trend0 = tr.pStart + tr.slope * (t0 - tr.tStart);
         double trend1 = tr.pStart + tr.slope * (t1 - tr.tStart);
