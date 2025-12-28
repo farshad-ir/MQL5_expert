@@ -1,3 +1,8 @@
 todo Dec-11
 -total = numBuy or numSell, can distant the other order
 -why not closing works? we have enough (do close sell) (do close Buy)
+
+Dec-28
+-I want to watch the chart and add strategy: each one should have dir, SL, TP
+-For this, every indicator should have a refined output
+-for example up trends should have an array, and we just call it in  OnTick()
