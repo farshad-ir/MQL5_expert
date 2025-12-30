@@ -80,9 +80,15 @@ void OnTick()
     if(Bars(_Symbol, PERIOD_CURRENT) < Lookback*2 + 20)
        return;
 
-    int i = Lookback;
+    int i = Lookback+1;
     
-    if(IsSwingHigh(i)) { int rank = CalculateHighRank(i); DrawHighStar(i, rank); StoreHigh(i, rank); DrawTrendFromHighs();}
+    if(IsSwingHigh(i)) 
+      { int rank = CalculateHighRank(i); DrawHighStar(i, rank); StoreHigh(i, rank); 
+                           DrawTrendFromHighs();
+      }
+    else{
+      Print("else");
+    }
     
     
     UpdateLowTrends(1);
@@ -100,9 +106,9 @@ void OnTick()
    
    
     // 👇 اینجا منطق گزارش
-    CheckLowTrendEvents(1);
-    CheckStructureLowEvents(1);
-    Print("Close: ", DoubleToString(iClose(_Symbol,PERIOD_M5,1) ) );
+    //CheckLowTrendEvents(1);
+    //CheckStructureLowEvents(1);
+    //Print("Close: ", DoubleToString(iClose(_Symbol,PERIOD_M5,1) ) );
     //
     // دوم ژانویه تا اخر شب
     // وقتی لول ۱ می شود خرید بزنیم در طی چند کندل به پایین می رود 
@@ -162,7 +168,7 @@ void OnTick()
 bool IsSwingHigh(int index)
 {
    double h = iHigh(_Symbol, PERIOD_CURRENT, index);
-
+   
    for(int j=1; j<=Lookback; j++)
    {
       if(iHigh(_Symbol, PERIOD_CURRENT, index+j) >= h) return false;
@@ -319,6 +325,7 @@ void DrawTrendFromHighs()
 
                   if(lowIdx != -1)
                      DrawLowStar(lowIdx);
+                     Print("DrawLowStar");
                }
             }
          }
